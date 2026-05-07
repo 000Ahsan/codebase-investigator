@@ -79,14 +79,14 @@
                     <div class="form-hint">Required for private repos and higher rate limits</div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Cerebras API Key (Primary)</label>
+                    <label class="form-label">Cerebras API Key</label>
                     <input type="password" class="form-input" id="cerebrasKey" placeholder="cso_...">
-                    <div class="form-hint">Get free at <a href="https://cloud.cerebras.ai" target="_blank" style="color: var(--accent);">cloud.cerebras.ai</a> — 60K TPM limit</div>
+                    <div class="form-hint">Used for investigation. Automatically cycles through 4 models if rate limited. Get free at <a href="https://cloud.cerebras.ai" target="_blank" style="color: var(--accent);">cloud.cerebras.ai</a></div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Groq API Key (Fallback + Auditor)</label>
+                    <label class="form-label">Groq API Key</label>
                     <input type="password" class="form-input" id="groqKey" placeholder="gsk_...">
-                    <div class="form-hint">Get from <a href="https://console.groq.com/keys" target="_blank" style="color: var(--accent);">Groq Console</a> — 12K TPM limit</div>
+                    <div class="form-hint">Used only for independent auditing of answers. Get free at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--accent);">console.groq.com</a></div>
                 </div>
             </div>
             <div class="modal-footer">

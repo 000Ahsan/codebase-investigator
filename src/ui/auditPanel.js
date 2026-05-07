@@ -1,4 +1,4 @@
-import { CEREBRAS_MODEL, GROQ_AUDITOR_MODEL } from '../config/constants.js';
+import { GROQ_AUDITOR_MODEL } from '../config/constants.js';
 
 export function getAuditColor(trustLevel) {
     const level = trustLevel?.toLowerCase() || 'low';
@@ -10,7 +10,7 @@ export function getAuditColor(trustLevel) {
     }
 }
 
-export function renderAuditPanel(messageEl, auditResult) {
+export function renderAuditPanel(messageEl, auditResult, investigatorModel) {
     const level = auditResult.overall?.toLowerCase() || 'low';
     const panel = document.createElement('div');
     panel.className = `audit-panel audit-${level}`;
@@ -53,7 +53,7 @@ export function renderAuditPanel(messageEl, auditResult) {
             <div>${auditResult.contradictionCheck}</div>
         </div>
         <div class="audit-section" style="border-top: 1px solid rgba(255,255,255,0.2); font-size: 11px; color: var(--text-muted); text-align: center;">
-            Investigated by ${CEREBRAS_MODEL} (Cerebras) · Audited by ${GROQ_AUDITOR_MODEL} (Groq)
+            Investigated by ${investigatorModel || 'Cerebras'} via Cerebras · Audited by ${GROQ_AUDITOR_MODEL} via Groq
         </div>
     `;
 

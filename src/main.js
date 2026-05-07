@@ -4,7 +4,7 @@ import { loadRepo, getRepoState, findFilePath, fetchAndCacheFile, reset as reset
 import { buildContext, getLastContextTokens } from './core/contextBuilder.js';
 import { addTurn, getTurnNumber, getHistory, getRecentTurnsForMessages, getSystemSummaryMessage, reset as resetConversation } from './core/conversationManager.js';
 import { addClaims, getAllClaims, clearAll as clearClaims, formatClaimsForPrompt } from './core/claimLog.js';
-import { callInvestigator, buildInvestigatorPrompt, extractClaims, extractCitations, formatFileListForPrompt } from './api/investigator.js';
+import { callInvestigator, buildInvestigatorPrompt, extractClaims, extractCitations, formatFileListForPrompt, getLastUsedModel } from './api/investigator.js';
 import { callAuditor } from './api/auditor.js';
 import { generateSummary, renderSummaryCard, dismissCard } from './ui/repoSummaryCard.js';
 import { renderTree, clearTree } from './ui/repoTree.js';
@@ -242,7 +242,9 @@ async function sendMessage() {
         });
 
         // Ask Investigator
-        const answer = await callInvestigator(messages);
+        const investigatorResult = await callInvestigator(messages);
+        const answer = investigatorResult.content;
+        const investigatorModel = investigatorResult.model;
 
         // Remove skeleton
         removeSkeleton(skeletonId);
@@ -288,7 +290,7 @@ async function sendMessage() {
 
         // Render audit panel
         removeAuditingIndicator(auditId);
-        renderAuditPanel(messageEl, auditResult);
+        renderAuditPanel(messageEl, auditResult, investigatorModel);
 
         // Store in conversation
         addTurn('investigator', answer, claims, auditResult);

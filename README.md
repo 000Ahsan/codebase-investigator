@@ -1,147 +1,80 @@
 # Codebase Investigator
 
-An AI-powered tool that investigates GitHub repositories and answers questions about their codebase with citations to specific files and line numbers. Every answer is audited by a separate AI for accuracy and completeness.
+A browser-based AI agent for investigating public GitHub repositories through plain English conversation. Every answer is grounded in real files and line numbers, and independently audited by a second AI model.
 
-![Vite](https://img.shields.io/badge/Vite-5.0+-646CFF?logo=vite&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?logo=javascript&logoColor=black)
+## How It Works
 
-## Features
+Paste a public GitHub URL, ask questions about the code, and get answers with specific file and line citations. A separate auditor model then reviews every answer for hallucinated citations, logical gaps, and whether suggested fixes would break anything else.
 
-- **Dual AI Architecture**: Uses Cerebras (llama3.1-8b) as primary investigator with Groq (llama-3.3-70b-versatile) as fallback
-- **AI Auditing**: Every answer is cross-checked by a separate Groq-based auditor for citation accuracy, logic soundness, and contradictions
-- **README-First Intelligence**: Prioritizes README content for answers before analyzing raw code
-- **File Existence Guard**: Only references files that actually exist in the repository (numbered file list)
-- **Smart Token Budgeting**: Enforces 10K token limit with allocation: 500 system, 1500 README, 6000 files, 1500 conversation, 300 claims
-- **Vendor Filtering**: Automatically excludes vendor, node_modules, and lock files from context
-- **Clickable Citations**: Click any `[file:lines]` citation to open the file viewer at the exact line
-- **Claim Tracking**: Maintains a claim log across conversation turns for consistency
-- **Language Detection**: Auto-detects project language from dependency files (composer.json, package.json, etc.)
+## Stack
 
-## API Requirements
+- **Frontend**: Vite + Vanilla JS (deploys as static files)
+- **Investigator**: Cerebras API — cycles through 4 models on rate limit
+- **Auditor**: Groq API — llama-3.1-8b-instant (independent model)
+- **Code Source**: GitHub REST API (public repos, no auth needed)
 
-The app requires two AI APIs (free tiers available):
+## Investigator Model Chain (Cerebras)
 
-| Provider | Purpose | Free Tier | Get Key |
-|----------|---------|-----------|---------|
-| **Cerebras** | Primary Investigator | 60,000 TPM | [cloud.cerebras.ai](https://cloud.cerebras.ai) |
-| **Groq** | Fallback + Auditor | 12,000 TPM | [console.groq.com](https://console.groq.com/keys) |
+Automatically tries these models in order if rate limited:
+1. llama3.1-8b (primary)
+2. gpt-oss-120b (fallback 2)
+3. qwen-3-235b-a22b-instruct-2507 (fallback 3)
+4. zai-glm-4.7 (fallback 4)
 
-Optional: GitHub token for higher rate limits and private repositories.
+## Auditor Model (Groq)
 
-## Installation
+llama-3.1-8b-instant — separate model, separate API, separate prompt. No self-scoring.
+
+## Key Features
+
+- Automatic language detection (PHP, JS, Python, Go, Ruby, Java)
+- File existence guard — model can only cite real files
+- README-first context strategy for accurate common answers
+- Running claim log to catch contradictions across turns
+- Smart 10K token budget per request
+- 4-model Cerebras fallback chain for high availability
+- Color coded audit results (HIGH / MEDIUM / LOW trust)
+- Clickable citations open file viewer at exact line
+
+## API Keys Required
+
+| Key | Where to get | Used for |
+|-----|-------------|---------|
+| Cerebras | cloud.cerebras.ai | Investigation (free) |
+| Groq | console.groq.com | Auditing (free) |
+
+Both are free with no credit card required.
+
+## Getting Started
 
 ```bash
-# Clone the repository
-git clone https://github.com/000Ahsan/codebase-investigator.git
-cd codebase-investigator
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173/`.
+Then open http://localhost:5173, enter your API keys, paste a GitHub URL and start investigating.
 
-## Usage
+## Deploy
 
-1. **Enter a GitHub URL** in the header input (e.g., `github.com/owner/repo`)
-2. **Configure API Keys** by clicking the "⚙️ API Keys" button
-   - Add your Cerebras API key (primary)
-   - Add your Groq API key (fallback + auditor)
-   - Optionally add GitHub token for private repos
-3. **Ask Questions** about the codebase
-   - The investigator will cite specific files and line numbers
-   - Click citations to view the source code
-   - Review the audit panel under each answer for trust verification
-
-## Project Structure
-
-```
-codebase-investigator/
-├── src/
-│   ├── api/              # API clients
-│   │   ├── github.js     # GitHub API integration
-│   │   ├── investigator.js # Cerebras/Groq investigator
-│   │   └── auditor.js    # Groq audit logic
-│   ├── config/
-│   │   └── constants.js  # Token budgets, model names, vendor patterns
-│   ├── core/             # Core business logic
-│   │   ├── repoLoader.js # Repository loading
-│   │   ├── contextBuilder.js # Token budgeting & context assembly
-│   │   ├── claimLog.js   # Claim tracking
-│   │   └── conversationManager.js # Chat history & summarization
-│   ├── ui/               # UI rendering modules
-│   │   ├── chat.js       # Message rendering
-│   │   ├── auditPanel.js # Audit display
-│   │   ├── fileViewer.js # Source code viewer
-│   │   ├── repoTree.js   # File tree sidebar
-│   │   └── repoSummaryCard.js # README summary
-│   ├── utils/            # Utilities
-│   │   ├── tokenCounter.js
-│   │   ├── languageDetector.js
-│   │   └── fileFilter.js
-│   ├── styles/
-│   │   └── main.css      # Dark theme styles
-│   └── main.js           # App entry point
-├── index.html            # HTML skeleton
-├── package.json          # Vite project config
-└── vite.config.js        # Vite build config
-```
-
-## Key Technical Details
-
-### Token Budgeting Strategy
-- **System Prompt**: 500 tokens (investigator instructions)
-- **README**: 1500 tokens (always included first for project context)
-- **Files**: 6000 tokens (scored by keyword relevance, truncated at 1500 tokens/file)
-- **Conversation**: 1500 tokens (last 3 turns, with auto-summarization every 5 turns)
-- **Claims**: 300 tokens (last 5 claims for consistency)
-- **Question**: 200 tokens (user input)
-- **Total Hard Cap**: ~10,000 tokens
-
-### Cerebras → Groq Fallback
-When Cerebras hits rate limits or errors:
-1. A "⚡ Using Groq fallback" indicator appears
-2. The request automatically retries with Groq
-3. Both APIs use the same prompt structure for consistency
-
-### Vendor File Exclusions
-The following are automatically excluded from context:
-- `vendor/` and `node_modules/` directories
-- `.git/`, `dist/`, `build/`, `coverage/` directories
-- Lock files: `composer.lock`, `package-lock.json`, `yarn.lock`
-- Binary files: images, fonts, archives
-- Meta files (unless root): `LICENSE`, `CHANGELOG.md`, etc.
-
-### Citation Format
-The investigator generates citations in the format:
-```
-[filename:23-45]
-```
-
-Clicking opens the file viewer with lines 23-45 highlighted in yellow.
-
-## Development
-
-### Build for production
 ```bash
 npm run build
+# Upload dist/ folder to Vercel, Netlify, or any static host
 ```
 
-### Preview production build
-```bash
-npm run preview
-```
+## Limitations
 
-### Environment Variables
-Copy `.env.example` to `.env` and add your keys:
-```bash
-cp .env.example .env
-```
+- Public repos only (no OAuth yet)
+- Cerebras free tier: 1M tokens/day, 8K context cap
+- Groq free tier: limited tokens per minute for auditing
+- Keyword-based file search (no semantic embeddings yet)
 
-Note: In the browser environment, API keys are stored in `localStorage` for persistence across refreshes.
+## Future Improvements
+
+- GitHub OAuth for private repos
+- Semantic file search using embeddings
+- Persistent sessions via IndexedDB
+- Diff viewer for suggested code changes
+- Export conversation and audit trail as PDF
 
 ## License
 

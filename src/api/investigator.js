@@ -1,9 +1,10 @@
 import {
     CEREBRAS_ENDPOINT,
-    GROQ_ENDPOINT,
-    CEREBRAS_MODEL,
-    GROQ_FALLBACK_MODEL
+    CEREBRAS_MODEL_CHAIN
 } from '../config/constants.js';
+
+// Track which model was used for the last successful call
+let lastUsedModel = null;
 
 // System prompt for the investigator
 export function buildInvestigatorPrompt(detectedLanguage, dependencyFile, actualFilesList, repo) {
@@ -49,15 +50,15 @@ function getCerebrasKey() {
     return localStorage.getItem('cerebras_key') || '';
 }
 
-function getGroqKey() {
-    return localStorage.getItem('groq_key') || '';
-}
+function showModelIndicator(model) {
+    // Remove any existing indicator
+    const existing = document.getElementById('modelIndicator');
+    if (existing) existing.remove();
 
-function showFallbackIndicator() {
     const indicator = document.createElement('div');
-    indicator.id = 'fallbackIndicator';
-    indicator.textContent = '⚡ Using Groq fallback';
-    indicator.style.cssText = 'position: fixed; top: 10px; right: 10px; background: var(--warning); color: #000; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; z-index: 1000;';
+    indicator.id = 'modelIndicator';
+    indicator.textContent = `⚡ Using ${model}`;
+    indicator.style.cssText = 'position: fixed; top: 10px; right: 10px; background: var(--accent); color: #fff; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; z-index: 1000;';
     document.body.appendChild(indicator);
 
     setTimeout(() => {
@@ -67,14 +68,15 @@ function showFallbackIndicator() {
 
 export async function callInvestigator(messages) {
     const cerebrasKey = getCerebrasKey();
-    const groqKey = getGroqKey();
 
-    if (!cerebrasKey && !groqKey) {
-        throw new Error('No AI API key configured — add Cerebras (primary) or Groq (fallback) key');
+    if (!cerebrasKey) {
+        throw new Error('Cerebras API key not configured — add key at cloud.cerebras.ai');
     }
 
-    // Try Cerebras first (primary provider)
-    if (cerebrasKey) {
+    // Try each model in the chain
+    for (let i = 0; i < CEREBRAS_MODEL_CHAIN.length; i++) {
+        const model = CEREBRAS_MODEL_CHAIN[i];
+
         try {
             const response = await fetch(CEREBRAS_ENDPOINT, {
                 method: 'POST',
@@ -83,79 +85,74 @@ export async function callInvestigator(messages) {
                     'Authorization': `Bearer ${cerebrasKey}`
                 },
                 body: JSON.stringify({
-                    model: CEREBRAS_MODEL,
+                    model: model,
                     messages: messages,
                     temperature: 0.2,
                     max_tokens: 8192
                 })
             });
 
-            // Handle Cerebras errors
+            // Handle errors
             if (response.status === 429) {
-                console.log('Cerebras rate limit hit, trying Groq fallback...');
-            } else if (response.status === 401) {
+                console.log(`Cerebras ${model} rate limit hit, trying next model...`);
+                continue; // Try next model in chain
+            }
+
+            if (response.status === 401) {
                 throw new Error('Invalid Cerebras API key — check your key at cloud.cerebras.ai');
-            } else if (!response.ok) {
+            }
+
+            if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
                 const errorMsg = error.error?.message || '';
-                console.log('Cerebras error:', errorMsg || 'API error');
-                // Check for model_not_found error
-                if (errorMsg.includes('model_not_found') || errorMsg.includes('not found')) {
-                    throw new Error('⚠️ Cerebras model error — check model name at inference-docs.cerebras.ai/models');
+                console.log(`Cerebras ${model} error:`, errorMsg || 'API error');
+
+                // Check for model_not_found error — try next model
+                if (errorMsg.includes('model_not_found') || errorMsg.includes('not found') || errorMsg.includes('Model')) {
+                    console.log(`Model ${model} unavailable, trying next...`);
+                    continue;
                 }
-                // Try Groq fallback for other non-auth errors
-            } else {
-                // Success on Cerebras
-                const data = await response.json();
-                return data.choices[0].message.content;
+
+                // Other errors — stop and report
+                throw new Error(`Cerebras API error: ${errorMsg || response.statusText}`);
             }
-        } catch (cerebrasError) {
-            console.log('Cerebras request failed:', cerebrasError.message);
-            if (cerebrasError.message.includes('model error')) {
-                throw cerebrasError; // Don't retry on model errors
+
+            // Success!
+            const data = await response.json();
+            lastUsedModel = model;
+
+            // Show indicator if using a fallback model (not the primary)
+            if (i > 0) {
+                showModelIndicator(model);
             }
-            // Continue to Groq fallback
+
+            return {
+                content: data.choices[0].message.content,
+                model: model
+            };
+
+        } catch (error) {
+            // If it's an auth error, stop immediately
+            if (error.message.includes('Invalid Cerebras API key')) {
+                throw error;
+            }
+
+            // For other errors on the last model, throw
+            if (i === CEREBRAS_MODEL_CHAIN.length - 1) {
+                throw new Error(`All Cerebras models failed. Last error: ${error.message}`);
+            }
+
+            // Otherwise continue to next model
+            console.log(`Cerebras ${model} failed:`, error.message);
         }
     }
 
-    // Fallback to Groq (if Cerebras failed, rate limited, or no Cerebras key)
-    if (!groqKey) {
-        throw new Error('Cerebras rate limit hit and no Groq API key configured for fallback');
-    }
+    // All models exhausted
+    throw new Error(`⚠️ All Cerebras models are currently rate limited. Please wait a minute and try again, or check your usage at cloud.cerebras.ai`);
+}
 
-    // Show fallback indicator
-    showFallbackIndicator();
-
-    const response = await fetch(GROQ_ENDPOINT, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${groqKey}`
-        },
-        body: JSON.stringify({
-            model: GROQ_FALLBACK_MODEL,
-            messages: messages,
-            temperature: 0.2,
-            max_tokens: 8192
-        })
-    });
-
-    if (response.status === 429) {
-        throw new Error('Both Cerebras and Groq rate limits hit — wait a minute and retry');
-    }
-    if (response.status === 401) {
-        throw new Error('Invalid Groq API key — check your key at console.groq.com');
-    }
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        if (error.error?.message?.includes('model')) {
-            throw new Error('Both AI models temporarily unavailable');
-        }
-        throw new Error(error.error?.message || 'Groq API error');
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
+export function getLastUsedModel() {
+    return lastUsedModel || CEREBRAS_MODEL_CHAIN[0];
 }
 
 export function extractClaims(answer, turnNumber) {

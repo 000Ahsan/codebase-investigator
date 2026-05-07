@@ -124,9 +124,18 @@ export async function callAuditor(question, answer, citedFiles, claimLog, coreFi
         const data = await response.json();
         return JSON.parse(data.choices[0].message.content);
     } catch (error) {
+        let reason;
+        if (error.message.includes('rate limit')) {
+            reason = '⚠️ Audit unavailable — Groq rate limit hit. Answer not independently verified.';
+        } else if (error.message.includes('Invalid Groq API key')) {
+            reason = '⚠️ Invalid Groq API key — audit skipped';
+        } else {
+            reason = `⚠️ Audit failed: ${error.message}`;
+        }
+
         return {
             overall: 'LOW',
-            reason: `Audit failed: ${error.message}`,
+            reason: reason,
             citationChecks: [],
             logicCheck: 'Error',
             impactCheck: 'Error',

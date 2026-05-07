@@ -6,10 +6,21 @@ export const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 export const GITHUB_API_BASE = 'https://api.github.com/repos';
 
 // ============================================
-// MODEL NAMES
+// MODEL NAMES — CEREBRAS 4-MODEL FALLBACK CHAIN
 // ============================================
-export const CEREBRAS_MODEL = 'llama3.1-8b';
-export const GROQ_FALLBACK_MODEL = 'llama-3.3-70b-versatile';
+export const CEREBRAS_MODEL_CHAIN = [
+    'llama3.1-8b',          // primary — best reasoning
+    'gpt-oss-120b',          // fallback 2 — largest, most capable
+    'qwen-3-235b-a22b-instruct-2507',  // fallback 3 — last resort
+    'zai-glm-4.7'           // fallback 4 — alternative
+];
+
+// For backward compatibility and single-model references
+export const CEREBRAS_MODEL = CEREBRAS_MODEL_CHAIN[0];
+
+// ============================================
+// AUDITOR — GROQ ONLY (NO FALLBACK)
+// ============================================
 export const GROQ_AUDITOR_MODEL = 'llama-3.1-8b-instant';
 export const GROQ_SUMMARY_MODEL = 'llama-3.3-70b-versatile';
 
