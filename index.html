@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codebase Investigator</title>
+    <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="progress-text" id="progressText"></div>
+
+    <div class="container">
+        <header class="header">
+            <h1>Codebase Investigator</h1>
+            <div class="repo-input-group">
+                <input type="text" class="repo-input" id="repoInput" placeholder="github.com/owner/repo">
+                <button class="btn btn-primary" id="loadRepoBtn">
+                    <span>Load</span>
+                </button>
+            </div>
+            <button class="btn api-keys-btn" id="apiKeysBtn">
+                <span>⚙️ API Keys</span>
+            </button>
+        </header>
+
+        <main class="chat-area" id="chatArea">
+            <div class="welcome-message" id="welcomeMessage">
+                <h2>Welcome to Codebase Investigator</h2>
+                <p>Paste a GitHub repository URL above to get started. The investigator will analyze the codebase and answer your questions with citations to specific files and line numbers.</p>
+                <p>Every answer is audited by a separate AI for accuracy and completeness.</p>
+            </div>
+        </main>
+
+        <div class="input-area">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                <div id="tokenCount" style="font-size: 11px; color: var(--text-muted); height: 14px;"></div>
+                <textarea class="message-input" id="messageInput" placeholder="Ask about the codebase..." rows="1" disabled></textarea>
+            </div>
+            <button class="btn btn-primary" id="sendBtn" disabled>
+                <span>Send</span>
+            </button>
+        </div>
+
+        <aside class="sidebar">
+            <div class="sidebar-tabs">
+                <div class="sidebar-tab active" data-tab="files">Files</div>
+                <div class="sidebar-tab" data-tab="viewer">Viewer</div>
+                <div class="sidebar-tab" data-tab="claims">Claims</div>
+            </div>
+            <div class="sidebar-content">
+                <div class="file-tree active" id="fileTree"></div>
+                <div class="file-viewer" id="fileViewer">
+                    <div class="file-header" id="fileHeader">
+                        <span class="file-header-icon">📄</span>
+                        <span id="fileName">Select a file</span>
+                    </div>
+                    <div class="file-content" id="fileContent"></div>
+                </div>
+                <div class="claim-log" id="claimLog">
+                    <div class="no-claims">No claims yet. Start a conversation to see the claim log.</div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- API Keys Modal -->
+    <div class="modal-overlay" id="apiKeysModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>API Configuration</h2>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">GitHub Token (optional)</label>
+                    <input type="password" class="form-input" id="githubToken" placeholder="ghp_...">
+                    <div class="form-hint">Required for private repos and higher rate limits</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Cerebras API Key (Primary)</label>
+                    <input type="password" class="form-input" id="cerebrasKey" placeholder="cso_...">
+                    <div class="form-hint">Get free at <a href="https://cloud.cerebras.ai" target="_blank" style="color: var(--accent);">cloud.cerebras.ai</a> — 60K TPM limit</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Groq API Key (Fallback + Auditor)</label>
+                    <input type="password" class="form-input" id="groqKey" placeholder="gsk_...">
+                    <div class="form-hint">Get from <a href="https://console.groq.com/keys" target="_blank" style="color: var(--accent);">Groq Console</a> — 12K TPM limit</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="closeModalBtn">Cancel</button>
+                <button class="btn btn-primary" id="saveKeysBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
